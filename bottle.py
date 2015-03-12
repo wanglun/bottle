@@ -2332,7 +2332,7 @@ def _file_iter_range(fp, offset, bytes, maxread=1024*1024):
         yield part
 
 
-def static_file(filename, root, mimetype='auto', download=False, charset='UTF-8'):
+def static_file(filename, root, mimetype='auto', download=False, charset='UTF-8', index=None):
     """ Open a file in a safe way and return :exc:`HTTPResponse` with status
         code 200, 305, 403 or 404. The ``Content-Type``, ``Content-Encoding``,
         ``Content-Length`` and ``Last-Modified`` headers are set if possible.
@@ -2350,16 +2350,27 @@ def static_file(filename, root, mimetype='auto', download=False, charset='UTF-8'
             original filename is used (default: False).
         :param charset: The charset to use for files with a ``text/*``
             mime-type. (default: UTF-8)
+        :param index: the default index files, eg. ``index.html``
     """
 
-    root = os.path.abspath(root) + os.sep
+    root = os.path.abspath(root)
     filename = os.path.abspath(os.path.join(root, filename.strip('/\\')))
+    index = index or []
     headers = dict()
 
     if not filename.startswith(root):
         return HTTPError(403, "Access denied.")
     if not os.path.exists(filename) or not os.path.isfile(filename):
-        return HTTPError(404, "File does not exist.")
+        if os.path.isdir(filename):
+            for i in index:
+                j = os.path.join(filename, i)
+                if os.path.isfile(j):
+                    filename = j
+                    break
+            else:
+                return HTTPError(404, "File does not exist.")
+        else:
+            return HTTPError(404, "File does not exist.")
     if not os.access(filename, os.R_OK):
         return HTTPError(403, "You do not have permission to access this file.")
 
